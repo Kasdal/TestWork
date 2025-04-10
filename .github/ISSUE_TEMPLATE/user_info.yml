@@ -1,5 +1,5 @@
-name: User Information
-description: Template for collecting user information
+name: Enhanced User Information
+description: Improved template for collecting user information
 title: "[USER]: "
 labels:
   - user-info
@@ -7,21 +7,69 @@ body:
   - type: markdown
     attributes:
       value: |
-        ## User Information Form
-        Please provide your details below.
+        ## User Information Request
+        Please provide your details below to help us process your request efficiently.
   - type: input
     id: name
     attributes:
-      label: Your Name
-      description: Please enter your full name
+      label: Full Name
+      description: Please enter your complete name
       placeholder: John Doe
     validations:
       required: true
-  - type: input
+  - type: dropdown
     id: position
     attributes:
-      label: Your Position
-      description: Please enter your current position or role
-      placeholder: Software Developer
+      label: Position
+      description: Please select your current role
+      options:
+        - Software Engineer
+        - DevOps Engineer
+        - Product Manager
+        - Designer
+        - QA Engineer
+        - Other (specify in Additional Info)
     validations:
       required: true
+  - type: dropdown
+    id: department
+    attributes:
+      label: Department
+      description: Which department do you work in?
+      options:
+        - Engineering
+        - Product
+        - Design
+        - Operations
+        - Marketing
+        - Sales
+        - Human Resources
+    validations:
+      required: true
+  - type: input
+    id: email
+    attributes:
+      label: Email Address
+      description: Your work email address
+      placeholder: name@example.com
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Request Priority
+      description: How urgent is this request?
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
+  - type: textarea
+    id: additional_info
+    attributes:
+      label: Additional Information
+      description: Provide any additional context or information
+      placeholder: Type any extra details here...
+    validations:
+      required: false
