@@ -155,4 +155,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-Created with ❤️ by [Kasdal](https://github.com/Kasdal)
+Created with ❤️ by [Kasdal](https://github.com/Kasdal) and MCP 🚀
