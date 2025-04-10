@@ -20,18 +20,18 @@ jobs:
       - name: Parse issue body
         id: parse
         run: |
-          ISSUE_BODY='${{ toJSON(github.event.issue.body) }}'
-          echo "Full issue body: $ISSUE_BODY"
+          # Save issue body to a file for easier processing
+          echo '${{ github.event.issue.body }}' > issue_body.txt
           
-          # Extract name using grep (more reliable than sed in this context)
-          NAME=$(echo '${{ github.event.issue.body }}' | grep -A 1 "### Your Name" | tail -n 1 | xargs)
-          echo "NAME=$NAME" >> $GITHUB_OUTPUT
+          # Extract name using grep with better pattern matching
+          NAME=$(grep -A 2 "### Your Name" issue_body.txt | tail -n 1 | xargs)
           echo "Extracted Name: $NAME"
+          echo "NAME=$NAME" >> $GITHUB_OUTPUT
           
-          # Extract position using grep
-          POSITION=$(echo '${{ github.event.issue.body }}' | grep -A 1 "### Your Position" | tail -n 1 | xargs)
+          # Extract position using grep with better pattern matching
+          POSITION=$(grep -A 2 "### Your Position" issue_body.txt | tail -n 1 | xargs)
+          echo "Extracted Position: $POSITION" 
           echo "POSITION=$POSITION" >> $GITHUB_OUTPUT
-          echo "Extracted Position: $POSITION"
       
       - name: Output parsed information
         run: |
