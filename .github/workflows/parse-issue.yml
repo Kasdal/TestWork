@@ -8,40 +8,53 @@ jobs:
   parse-issue:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.labels.*.name, 'user-info')
+    permissions:
+      issues: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        
+      - name: Debug Issue Body
+        run: |
+          echo "Issue title: ${{ github.event.issue.title }}"
+          echo "Issue body:"
+          echo "${{ github.event.issue.body }}"
+      
       - name: Parse issue body
         id: parse
         run: |
-          ISSUE_BODY="${{ github.event.issue.body }}"
-          echo "Issue Body: $ISSUE_BODY"
+          ISSUE_BODY='${{ toJSON(github.event.issue.body) }}'
+          echo "Full issue body: $ISSUE_BODY"
           
-          # Extract name from issue body
-          NAME=$(echo "$ISSUE_BODY" | sed -n '/### Your Name/{n;n;p}' | xargs)
+          # Extract name using grep (more reliable than sed in this context)
+          NAME=$(echo '${{ github.event.issue.body }}' | grep -A 1 "### Your Name" | tail -n 1 | xargs)
+          echo "NAME=$NAME" >> $GITHUB_OUTPUT
           echo "Extracted Name: $NAME"
-          echo "NAME=$NAME" >> $GITHUB_ENV
           
-          # Extract position from issue body
-          POSITION=$(echo "$ISSUE_BODY" | sed -n '/### Your Position/{n;n;p}' | xargs)
+          # Extract position using grep
+          POSITION=$(echo '${{ github.event.issue.body }}' | grep -A 1 "### Your Position" | tail -n 1 | xargs)
+          echo "POSITION=$POSITION" >> $GITHUB_OUTPUT
           echo "Extracted Position: $POSITION"
-          echo "POSITION=$POSITION" >> $GITHUB_ENV
-          
+      
       - name: Output parsed information
         run: |
           echo "Parsed information from issue:"
-          echo "Name: ${{ env.NAME }}"
-          echo "Position: ${{ env.POSITION }}"
-          
+          echo "Name: ${{ steps.parse.outputs.NAME }}"
+          echo "Position: ${{ steps.parse.outputs.POSITION }}"
+      
       - name: Add comment to issue
-        uses: peter-evans/create-or-update-comment@v2
+        uses: actions/github-script@v6
         with:
-          issue-number: ${{ github.event.issue.number }}
-          body: |
-            ## Parsed Information
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const name = '${{ steps.parse.outputs.NAME }}';
+            const position = '${{ steps.parse.outputs.POSITION }}';
             
-            **Name:** ${{ env.NAME }}
-            **Position:** ${{ env.POSITION }}
-            
-            Thank you for your submission!
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Parsed Information
+              
+              **Name:** ${name}
+              **Position:** ${position}
+              
+              Thank you for your submission!`
+            });
