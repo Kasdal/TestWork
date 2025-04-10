@@ -1,60 +1,142 @@
-name: Parse Issue Information
+name: Enhanced Issue Information Processing
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  parse-issue:
+  process-issue:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.labels.*.name, 'user-info')
     permissions:
       issues: write
     steps:
-      - name: Debug Issue Body
-        run: |
-          echo "Issue title: ${{ github.event.issue.title }}"
-          echo "Issue body:"
-          echo "${{ github.event.issue.body }}"
-      
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
       - name: Parse issue body
         id: parse
         run: |
           # Save issue body to a file for easier processing
           echo '${{ github.event.issue.body }}' > issue_body.txt
           
-          # Extract name using grep with better pattern matching
-          NAME=$(grep -A 2 "### Your Name" issue_body.txt | tail -n 1 | xargs)
-          echo "Extracted Name: $NAME"
+          # Parse all form fields
+          NAME=$(grep -A 2 "### Full Name" issue_body.txt | tail -n 1 | xargs || echo "Not provided")
           echo "NAME=$NAME" >> $GITHUB_OUTPUT
           
-          # Extract position using grep with better pattern matching
-          POSITION=$(grep -A 2 "### Your Position" issue_body.txt | tail -n 1 | xargs)
-          echo "Extracted Position: $POSITION" 
+          POSITION=$(grep -A 2 "### Position" issue_body.txt | tail -n 1 | xargs || echo "Not provided")
           echo "POSITION=$POSITION" >> $GITHUB_OUTPUT
+          
+          DEPARTMENT=$(grep -A 2 "### Department" issue_body.txt | tail -n 1 | xargs || echo "Not provided")
+          echo "DEPARTMENT=$DEPARTMENT" >> $GITHUB_OUTPUT
+          
+          EMAIL=$(grep -A 2 "### Email Address" issue_body.txt | tail -n 1 | xargs || echo "Not provided")
+          echo "EMAIL=$EMAIL" >> $GITHUB_OUTPUT
+          
+          PRIORITY=$(grep -A 2 "### Request Priority" issue_body.txt | tail -n 1 | xargs || echo "Not provided")
+          echo "PRIORITY=$PRIORITY" >> $GITHUB_OUTPUT
+          
+          ADDITIONAL=$(grep -A 4 "### Additional Information" issue_body.txt | tail -n 3 | tr '\n' ' ' | xargs || echo "None")
+          echo "ADDITIONAL=$ADDITIONAL" >> $GITHUB_OUTPUT
+          
+          # For logging purposes
+          echo "Parsed fields:"
+          echo "Name: $NAME"
+          echo "Position: $POSITION"
+          echo "Department: $DEPARTMENT"
+          echo "Email: $EMAIL"
+          echo "Priority: $PRIORITY"
+          echo "Additional Info: $ADDITIONAL"
       
-      - name: Output parsed information
-        run: |
-          echo "Parsed information from issue:"
-          echo "Name: ${{ steps.parse.outputs.NAME }}"
-          echo "Position: ${{ steps.parse.outputs.POSITION }}"
+      # Set issue labels based on priority
+      - name: Set priority label
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const priority = '${{ steps.parse.outputs.PRIORITY }}';
+            let labelToAdd = '';
+            
+            if (priority.includes('High')) {
+              labelToAdd = 'priority-high';
+            } else if (priority.includes('Medium')) {
+              labelToAdd = 'priority-medium';
+            } else {
+              labelToAdd = 'priority-low';
+            }
+            
+            // Create the label if it doesn't exist
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelToAdd
+              });
+            } catch (error) {
+              // Label doesn't exist, create it
+              let color = '';
+              switch(labelToAdd) {
+                case 'priority-high':
+                  color = 'D93F0B'; // red
+                  break;
+                case 'priority-medium':
+                  color = 'FBCA04'; // yellow
+                  break;
+                case 'priority-low':
+                  color = '0E8A16'; // green
+                  break;
+              }
+              
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelToAdd,
+                color: color
+              });
+            }
+            
+            // Add the label to the issue
+            github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [labelToAdd]
+            });
       
-      - name: Add comment to issue
+      # Add a well-formatted response comment
+      - name: Add response comment
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const name = '${{ steps.parse.outputs.NAME }}';
             const position = '${{ steps.parse.outputs.POSITION }}';
+            const department = '${{ steps.parse.outputs.DEPARTMENT }}';
+            const email = '${{ steps.parse.outputs.EMAIL }}';
+            const priority = '${{ steps.parse.outputs.PRIORITY }}';
+            const additional = '${{ steps.parse.outputs.ADDITIONAL }}';
             
             github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `## Parsed Information
+              body: `## 🎉 Information Received
               
-              **Name:** ${name}
-              **Position:** ${position}
+              Thank you for your submission! We've processed the following information:
               
-              Thank you for your submission!`
+              | Field | Value |
+              | ----- | ----- |
+              | 👤 Name | ${name} |
+              | 💼 Position | ${position} |
+              | 🏢 Department | ${department} |
+              | 📧 Email | ${email} |
+              | 🔔 Priority | ${priority} |
+              ${additional !== 'None' ? `| 📝 Additional Info | ${additional} |` : ''}
+              
+              Your request has been prioritized as **${priority}** and has been tagged accordingly.
+              
+              Expected response time: ${priority === 'High' ? '24 hours' : priority === 'Medium' ? '48 hours' : '1 week'}
+              
+              For urgent matters, please contact support@example.com
+              `
             });
