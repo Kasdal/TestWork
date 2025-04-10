@@ -1,0 +1,53 @@
+name: Parse Issue Information
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  parse-issue:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'user-info')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Parse issue body
+        id: parse
+        run: |
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          
+          # Extract name from issue body
+          NAME=$(echo "$ISSUE_BODY" | grep -A 2 "### Your Name" | tail -n 1)
+          echo "NAME=$NAME" >> $GITHUB_ENV
+          
+          # Extract position from issue body
+          POSITION=$(echo "$ISSUE_BODY" | grep -A 2 "### Your Position" | tail -n 1)
+          echo "POSITION=$POSITION" >> $GITHUB_ENV
+          
+      - name: Output parsed information
+        run: |
+          echo "Parsed information from issue:"
+          echo "Name: ${{ env.NAME }}"
+          echo "Position: ${{ env.POSITION }}"
+          
+      - name: Add comment to issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue_number = context.issue.number;
+            const name = process.env.NAME;
+            const position = process.env.POSITION;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue_number,
+              body: `Parsed information from issue:
+              
+              **Name:** ${name}
+              **Position:** ${position}
+              
+              Thank you for your submission!`
+            });
